@@ -1,14 +1,34 @@
 # Code VP Multistream
 
 
-## Compilation
+## Sources
+
+```
+git clone git@gitlab.inria.fr:mingus/code-vp-multistream.git
+cd code-vp-multistream
+```
+
+## Compilation C++
 
 ```
 g++ -O3 -I. *.cpp -o main
 ```
 
-## Run
+## Run C++
 
 ```
 ./main
 ```
+
+## Julia code
+
+```
+julia
+julia> import Pkg
+julia> Pkg.update()
+julia> Pkg.add("Plots")
+julia> Pkg.activate(pwd())
+julia> Pkg.instantiate()
+julia> include("main.jl")
+```
+
