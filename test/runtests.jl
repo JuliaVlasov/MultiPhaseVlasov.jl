@@ -12,12 +12,12 @@ using Test
 
     I = sum(mesh.w .* f.(mesh.x))
 
-    @test I ≈ 3(√π)/4
+    @test I ≈ 3(√π) / 4
 
 end
 
 
-@testset "Distribution function" begin  
+@testset "Distribution function" begin
 
     eps = 1.0
     nx = 100
@@ -31,13 +31,13 @@ end
 
 end
 
-@testset "Non linear Poisson solver" begin  
+@testset "Non linear Poisson solver" begin
 
-     eps = 1.0
-     nx = 100
+    eps = 1.0
+    nx = 100
 
-     solver  = NonLinearPoissonSolver( eps, nx )
+    solver = NonLinearPoissonSolver(eps, nx)
 
-     @test true
+    @test true
 
 end

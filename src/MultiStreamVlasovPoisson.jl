@@ -8,4 +8,4 @@ include("compute_rho.jl")
 include("non_linear_poisson_solver.jl")
 include("compute_elec_energy.jl")
 
-end 
+end
