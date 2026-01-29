@@ -1,5 +1,36 @@
 using LinearAlgebra
-using .Threads
+
+export SingleFluidSolution
+
+struct SingleFluidSolution
+
+    m_upd_rho::SparseMatrixCSC{Float64, Int}
+    jac_t::SparseMatrixCSC{Float64, Int}
+
+    function SingleFluidSolution(mesh::AbstractMesh)
+
+        nx = mesh.nx
+
+        rows = Int[]
+        cols = Int[]
+        vals = Float64[]
+        for i in 1:(nx + 1)
+            ir = mod1(i + 1, nx + 1)
+            il = mod1(i - 1, nx + 1)
+
+            push!(rows, i); push!(cols, i); push!(vals, 0.0)
+            push!(rows, i); push!(cols, ir); push!(vals, 0.0)
+            push!(rows, i); push!(cols, il); push!(vals, 0.0)
+            
+        end
+        m_upd_rho = sparse( rows, cols, vals, nx + 1, nx + 1)
+        jac_t = sparse( rows, cols, vals, nx + 1, nx + 1)
+
+        new(m_upd_rho, jac_t)
+    end
+
+
+end
 
 """
 $(SIGNATURES)
@@ -61,60 +92,47 @@ function t_rho(s::Float64, t::Float64, u::Float64, dx::Float64)::Float64
     end
 end
 
-export update_single_fluid_solution!
+export update!
 
 """
 $(SIGNATURES)
 
 Update one single fluid solution using fixed-point iteration.
 """
-function update_single_fluid_solution!(
-        mesh::AbstractMesh, poisson::NonLinearPoissonSolver,
-        rho::AbstractVector, u::AbstractVector, rho_tot::Vector, phi::Vector,
+function update!( mesh::AbstractMesh, poisson::NonLinearPoissonSolver,
+        rho::AbstractVector, u::AbstractVector, phi::Vector,
         dt::Float64, maxiter::Int = 10
     )
 
+    sol = SingleFluidSolution(mesh)
     nx, dx = mesh.nx, mesh.dx
     iter = 0
 
     rho_at_step_n = copy(rho)
     u_at_step_n = copy(u)
-    new_rho = zeros(nx + 1)
     old_u = zeros(nx + 1)
-    new_phi = zeros(nx + 1)
-    q = zeros(nx + 1)
-
-    m_upd_rho = zeros(nx + 1, nx + 1)
-    m_upd_u = zeros(nx + 1, nx + 1)
-    m_upd_rho2 = zeros(nx + 1, nx + 1)
 
     # For Newton part for v
     t = zeros(nx + 1)
     t[1] = 1.0
-    jac_t = zeros(nx + 1, nx + 1)
     v = copy(u)
     delta = zeros(nx + 1)
-    old_v = copy(u)
     h = 1.0e-10
     it_newt = 0
 
     while norm(u .- old_u, Inf) / norm(u, Inf) > 1.0e-7 && iter < maxiter
-        # Reinitialize matrices
-        fill!(m_upd_rho, 0.0)
-        fill!(jac_t, 0.0)
 
         # Update rho with new computed velocity
         for i in 1:(nx + 1)
             ir = mod1(i + 1, nx + 1)
             il = mod1(i - 1, nx + 1)
-            m_upd_rho[i, i] = 1 + (dt / dx) * (g(u[i], dx) + g(u[il], dx) - u[il])
-            m_upd_rho[i, ir] = -(dt / dx) * (g(u[i], dx) - u[i])
-            m_upd_rho[i, il] = -(dt / dx) * g(u[il], dx)
+            sol.m_upd_rho[i, i] = 1 + (dt / dx) * (g(u[i], dx) + g(u[il], dx) - u[il])
+            sol.m_upd_rho[i, ir] = -(dt / dx) * (g(u[i], dx) - u[i])
+            sol.m_upd_rho[i, il] = -(dt / dx) * g(u[il], dx)
         end
 
         # Solve for rho
-        rho .= m_upd_rho \ rho_at_step_n
-
+        rho .= sol.m_upd_rho \ rho_at_step_n
 
         # Update u using Newton algorithm
         v .= u
@@ -136,10 +154,10 @@ function update_single_fluid_solution!(
                 q_l = 0.5 * (G(rho[i], rho[ir], u[i], dx) + G(rho[il], rho[i], u[il], dx))
 
                 # Compute Jacobian
-                jac_t[i, i] = 0.5 * (rho[ir] + rho[i]) + (dt / dx) * (mymax(q_r, 0.0) + mymax(q_l, 0.0) - q_l) -
+                sol.jac_t[i, i] = 0.5 * (rho[ir] + rho[i]) + (dt / dx) * (mymax(q_r, 0.0) + mymax(q_l, 0.0) - q_l) -
                     dt * ((phi[ir] - phi[i]) / dx) * (t_rho(rho[i], rho[ir], v[i] + h, dx) - t_rho(rho[i], rho[ir], v[i] - h, dx)) / (2h)
-                jac_t[i, ir] = -(dt / dx) * (mymax(q_r, 0.0) - q_r)
-                jac_t[i, il] = -(dt / dx) * mymax(q_l, 0.0)
+                sol.jac_t[i, ir] = -(dt / dx) * (mymax(q_r, 0.0) - q_r)
+                sol.jac_t[i, il] = -(dt / dx) * mymax(q_l, 0.0)
 
                 # Compute T(v)
                 t[i] = 0.5 * (rho[ir] + rho[i]) * v[i] - 0.5 * (rho_at_step_n[ir] + rho_at_step_n[i]) * u_at_step_n[i] +
@@ -149,7 +167,7 @@ function update_single_fluid_solution!(
                     dt * ((phi[ir] - phi[i]) / dx) * t_rho(rho[i], rho[ir], v[i], dx)
             end
 
-            delta .= jac_t \ t
+            delta .= sol.jac_t \ t
             v .-= delta
 
             it_newt += 1
@@ -160,6 +178,8 @@ function update_single_fluid_solution!(
 
         iter += 1
     end
+
     return
+
 end
 

@@ -33,9 +33,11 @@ function main(hermite_quad)
 
         # Update phi
         solve!(phi, poisson, rho_tot)
+
         for j in 1:ng
-            update_single_fluid_solution!(mesh, poisson, view(rho, :, j), view(u, :, j), rho_tot, phi, dt)
+            update!( mesh, poisson, view(rho, :, j), view(u, :, j), phi, dt)
         end
+
         compute_rho_total!(rho_tot, mesh, rho)
         push!(elec_energy, compute_elec_energy(phi, mesh, eps))
         n += 1
