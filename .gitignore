@@ -1,2 +1,5 @@
 a.out
 main
+*.swp
+/.ipynb_checkpoints
+Manifest.toml

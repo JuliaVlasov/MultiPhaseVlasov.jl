@@ -1,0 +1,18 @@
+name = "MultiStreamVlasovPoisson"
+uuid = "abfc845c-36a9-4d8b-9974-a67c5cbc791f"
+version = "0.1.0"
+authors = ["Pierre Navaro <pierre.navaro@math.cnrs.fr>"]
+
+[deps]
+DocStringExtensions = "ffbed154-4ef7-542d-bbb7-c09d3a79fcae"
+FastGaussQuadrature = "442a2c76-b920-505d-bb47-c5924d526838"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+DocStringExtensions = "0.9.5"
+FastGaussQuadrature = "1.1.0"
+LinearAlgebra = "1.12.0"
+SparseArrays = "1.12.0"
+Test = "1.11.0"
