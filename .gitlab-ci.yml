@@ -16,3 +16,7 @@ pages:
   artifacts:
     paths:
       - public
+  tags:
+    - ci.inria.fr
+    - medium
+
