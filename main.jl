@@ -8,11 +8,11 @@ using .Threads
 function main(hermite_quad)
 
     eps = 1.0
-    nx = 200
+    nx = 500
     k = 0.5
     xmin, xmax = 0.0, 2π / k
     vmin, vmax = -6.0, 6.0
-    ng = 50
+    ng = 100
 
     if hermite_quad
         mesh = GaussHermiteMesh(nx, ng)
@@ -34,7 +34,7 @@ function main(hermite_quad)
     rho_at_step_n = zeros(nx + 1,ng)    
 
     dt = mesh.dx
-    tfinal =  500*dt  # Final time
+    tfinal =  1000*dt  # Final time
     time = [0.0]
 
     @show elec_energy = [compute_elec_energy(phi, mesh, eps)]

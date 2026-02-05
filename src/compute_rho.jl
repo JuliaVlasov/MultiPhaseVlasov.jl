@@ -28,7 +28,8 @@ function compute_rho_total!(rho_tot::Vector{Float64}, mesh::UniformMesh, rho)
         alpha = vmin + (j - 1) * (vmax - vmin) / (ng - 1)
         for i in axes(rho, 1)
             x_i = mesh.x[i]
-            rho_tot[i] += rho[i, j] * mean_f0(alpha) / mesh.sf0
+#            rho_tot[i] += rho[i, j] * mean_f0(alpha) / mesh.sf0
+            rho_tot[i] += rho[i, j] / ng
         end
     end
 
