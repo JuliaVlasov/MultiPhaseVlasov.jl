@@ -6,30 +6,32 @@ using .Threads
 
 function main(hermite_quad)
     eps = 1.0
-    nx = 1000
+    nx = 100
     k = 0.5
     T = 1.0 
     xmin, xmax = 0.0, 2π / k
     #Construct the mesh in space
     mesh_x = UniformMesh(xmin,xmax,nx)
     #Construct the grid in velocity
-    nv = 500
-    vmin, vmax = -nv^0.5, nv^0.5 #-7.0, 7.0
+    nv = 20
+    #vmin, vmax = -nv^0.5, nv^0.5 #-7.0, 7.0
     #if hermite_quad
-    #grid_v = GaussHermiteGrid(nv,T)
+    grid_v = GaussHermiteGrid(nv,T)
     #else
-    grid_v = UniformGrid(vmin, vmax, nv, T)
+    #grid_v = UniformGrid(vmin, vmax, nv, T)
     #nd
-    #grid_v = MonteCarloGrid(nv)
+    #grid_v = MonteCarloGrid(nv,T)
+    #mf0 = zeros(nv)
+    #for i=1:nv
+    #    mf0[i] = mean_f0(grid_v.v[i],T)
+    #end
+    
+    
+    
 
     rho, u, rho_tot = compute_initial_condition(mesh_x,grid_v,k,T)
     rho_tot_init=copy(rho_tot)
-    #For every x_i f[x_i,.] is vector of size the cardinality of u[x_i,.] 
-    # f is not a rectangular Matrix the number of column varies for each x_i.
-    #f = compute_f(mesh_x,grid_v,rho,u) work in progress
-   # l = @layout [a{0.7w} b; c{0.2h}]
-   # pf = plot(mesh_x.x,u, f,st = [:surface, :contourf])
-    #display(plot(mesh_x.x, rho_tot))
+    display(plot(mesh_x.x, rho_tot))
     #Solve the Poisson equation initially
     phi = -log.(rho_tot)
     poisson!(phi, mesh_x, rho_tot)
@@ -41,8 +43,8 @@ function main(hermite_quad)
     u_at_step_n   = zeros(nx + 1,nv)    
     rho_at_step_n = zeros(nx + 1,nv)    
 
-    dt = 2*mesh_x.dx
-    tfinal =  100*dt  # Final time
+    dt = mesh_x.dx
+    tfinal =  1000*dt  # Final time
     time = [0.0]
 
     @show elec_energy = [compute_elec_energy(phi, mesh_x, eps)]
@@ -91,10 +93,13 @@ function main(hermite_quad)
 
     end
 
-    return time, elec_energy
+    return time, elec_energy, grid_v, mesh_x, u, rho_tot
 
 end
-@time time, elec_energy = main(true)
+@time time, elec_energy, grid_v, mesh_x, u, rho_tot = main(true)
+#Reconstruct mean_f0 to check
+#    plot(grid_v.v,grid_v.w,seriestype=:scatter)
+#    plot!(grid_v.v,mf0,seriestype=:scatter)
 plot(time, elec_energy, yaxis = :log, label = "UniformGrid")
 
 # @time t, elec_energy = main(true)

@@ -64,7 +64,19 @@ function newton(r)
  end
 
 
+#Function to sample a Maxwellian with mean and temperature given
+ function sample_maxwellian(T::Float64, mean::Float64, nb_sample::Int64)
 
+    v = Float64[]
+    rand_1 = rand(1,nb_sample)
+    rand_2 = rand(1,nb_sample)
+    for i = 1:nb_sample
+        r = sqrt(T) *sqrt(-2*log(rand_1[i])) + mean
+        t = 2*π*rand_2[i]
+        push!(v,r*cos(t))
+    end
+    return v
+ end
 
 function landau( nbpart :: Int64)
 
@@ -80,7 +92,6 @@ function landau( nbpart :: Int64)
       θ = r1 * 2π
       push!(xp,  newton(r2))
       push!(vp,  a * sin(θ))
-
    end
     return vp
 end
@@ -90,11 +101,16 @@ struct MonteCarloGrid <:AbstractGrid
     nv::Int
     v::Vector{Float64}
     w::Vector{Float64}
-    function MonteCarloGrid(nv)
-        v = landau(nv)
+    function MonteCarloGrid(nv,T)
+        v = sample_maxwellian(T,0.0,nv)
+        v = sort(v)
         w = zeros(nv)
-        for i in 1:nv
-            w[i] = 1.0/nv
+        sf0 = 0.0
+        for i in 1:nv-1
+            sf0+= mean_f0(v[i],T) * (v[i+1]-v[i])
+        end
+        for i in 1:nv-1
+            w[i] = mean_f0(v[i],T)*(v[i+1]-v[i])/sf0
         end
         new(nv,v,w)
     end

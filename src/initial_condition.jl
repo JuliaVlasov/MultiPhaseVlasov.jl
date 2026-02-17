@@ -13,7 +13,7 @@ $(SIGNATURES)
 Initial condition for the Vlasov-equation (Penrose-stable equilibra with a perturbation).
 """
 function f0(x::Float64, v::Float64, k::Float64, T::Float64)::Float64
-    a = 0.001
+    a = 0.5
     return (1.0 / sqrt(2π*T)) *  exp(-0.5 * v * v/T) * (1 + a * cos(k * x))
 end
 
