@@ -3,107 +3,112 @@ using LinearAlgebra
 using MultiStreamVlasovPoisson
 using Plots
 using .Threads
+global k = 0.5          #Wave number
+global u0 = 0.0         #Mean Velocity : 1) u0 = 0 Maxwellian, 2) u0 !=0 Two streams
+global T = 1.0          #Temperature
+global L  = 2π / k      #Size of the domain
+global eps = 1.0        #Debye length
 
 function main(hermite_quad)
-    eps = 1.0
-    nx = 100
-    k = 0.5
-    T = 1.0 
-    xmin, xmax = 0.0, 2π / k
-    #Construct the mesh in space
+    nx, xmin, xmax = 256, 0.0, L
     mesh_x = UniformMesh(xmin,xmax,nx)
-    #Construct the grid in velocity
-    nv = 20
-    #vmin, vmax = -nv^0.5, nv^0.5 #-7.0, 7.0
-    #if hermite_quad
-    grid_v = GaussHermiteGrid(nv,T)
-    #else
-    #grid_v = UniformGrid(vmin, vmax, nv, T)
-    #nd
-    #grid_v = MonteCarloGrid(nv,T)
-    #mf0 = zeros(nv)
-    #for i=1:nv
-    #    mf0[i] = mean_f0(grid_v.v[i],T)
-    #end
-    
-    
-    
+    nv, vmin, vmax = 256, -6.0, 6.0 
+    grid_v = UniformGrid(vmin, vmax, nv, T,u0)
 
-    rho, u, rho_tot = compute_initial_condition(mesh_x,grid_v,k,T)
-    rho_tot_init=copy(rho_tot)
-    display(plot(mesh_x.x, rho_tot))
-    #Solve the Poisson equation initially
-    phi = -log.(rho_tot)
+    #Compute the initial condition
+    rho, u, rho_tot = compute_initial_condition(mesh_x,grid_v,k,T,u0)
+    phi = zeros(nx+1)
     poisson!(phi, mesh_x, rho_tot)
-    #poisson = NonLinearPoissonSolver(eps, nx)
-    #solve!(phi, poisson, rho_tot)
 
-    
-    
+    #Initialize the streams
     u_at_step_n   = zeros(nx + 1,nv)    
     rho_at_step_n = zeros(nx + 1,nv)    
 
-    dt = mesh_x.dx
-    tfinal =  1000*dt  # Final time
+    #Set the CFL number and the final time
+    dt =  0.1*mesh_x.dx
+    tfinal = 50
     time = [0.0]
 
-    @show elec_energy = [compute_elec_energy(phi, mesh_x, eps)]
+    #Array of physical quantities 
+    elec_energy     = [compute_elec_energy(phi, mesh_x, eps)]
+    mass            = [compute_total_mass(rho_tot,mesh_x)]
+    momentum        = [compute_momentum(rho,u,mesh_x,grid_v)]
+    total_energy    = [compute_elec_energy(phi, mesh_x, eps) + compute_kinetic_energy(rho,u,mesh_x,grid_v)]
 
+    #Temporal loop
     n = 0
     while n * dt <= tfinal
-	iter = 0
-    err=1e-10
-	maxiter=50
-
+	    iter = 0
+        err=1e-10
+	    maxiter=50
+        norm_dx_u = 0.0
+        #Compute the discrete L^{\infty} norm of the gradient of the velocities
+        norm_dx_u = compute_norm_dx_u(mesh_x,grid_v,u)
+        threshold = 1.0/(n*dt)
+        if(norm_dx_u > threshold )
+            println("Remapping f at time = $(n*dt)")
+            rho, u = remap_f_on_uniform_grid(mesh_x,grid_v,rho,u)
+        end
         copyto!(rho_at_step_n, rho)
         copyto!(u_at_step_n, u)	
         old_u = zeros(nx + 1,nv)
-    
-       #Fixed point iterations to solve the non linear MultiStream pressureless Euler-Poisson system
-       ##########################
-       while norm(u .- old_u, Inf) / norm(u, Inf) > err && iter < maxiter
-
-
-	  #@show norm(u .- old_u, Inf) / norm(u, Inf)
-
-          @threads for j in 1:nv	 
-              update_rho!(mesh_x, view(rho, :, j), view(u, :, j), view(rho_at_step_n, :, j), dt)
-          end
-
-	  compute_rho_total!(rho_tot,grid_v,rho)
-	  #solve!(phi, poisson, rho_tot)
-	  poisson!(phi, mesh_x, rho_tot)	  
-
-          copyto!(old_u, u)
-
-	  @threads for j in 1:nv
-	  	   update_u!(mesh_x, view(rho, :, j), view(u, :, j), phi,
-		             view(rho_at_step_n, :, j), view(u_at_step_n, :, j), dt, maxiter)
-          end
-
+       
+       #Fixed point lopp to solve the non linear MultiStream pressureless Euler-Poisson system
+        while norm(u .- old_u, Inf) / norm(u, Inf) > err && iter < maxiter
+            #Update rho : the streams are packed into groups that are solved on each threads
+            @threads for j in 1:nv	 
+                update_rho!(mesh_x, view(rho, :, j), view(u, :, j), view(rho_at_step_n, :, j), dt)
+            end
+            #Assemble rho
+	        compute_rho_total!(rho_tot,grid_v,rho)
+            #Solve Poisson
+	        poisson!(phi, mesh_x, rho_tot)	  
+            copyto!(old_u, u)
+            #Update u : the streams are packed into groups that are solved on each threads
+	        @threads for j in 1:nv
+	  	        update_u!(mesh_x, view(rho, :, j), view(u, :, j), phi,
+		        view(rho_at_step_n, :, j), view(u_at_step_n, :, j), dt, maxiter)
+            end
          iter += 1
-	end
-
-
+	    end
         compute_rho_total!(rho_tot, grid_v, rho)
+    
         push!(elec_energy, compute_elec_energy(phi, mesh_x, eps))
+        push!(mass,compute_total_mass(rho_tot,mesh_x))
+        push!(momentum,compute_momentum(rho,u,mesh_x,grid_v))
+        push!(total_energy,compute_elec_energy(phi, mesh_x, eps) + compute_kinetic_energy(rho,u,mesh_x,grid_v))
         n += 1
         push!(time, n * dt)
-        println("iteration: $n , time = $(n * dt), elec energy = $(last(elec_energy))")
-
+        println("iteration: $n , time = $(n * dt), elec energy = $(last(elec_energy)), mass = $(last(mass)),   ||dxU|| = $norm_dx_u")  
     end
 
-    return time, elec_energy, grid_v, mesh_x, u, rho_tot
+    #Plot the final distribution function
+    f_on_grid =  interpolate_f_on_grid(mesh_x,grid_v,rho,u)
+    X = []
+    Y = []
+    Z = []
+    for i in 1:nx+1
+        for j in 1:nv
+            X = push!(X,mesh_x.x[i])
+            Y = push!(Y,grid_v.v[j])
+            Z = push!(Z,f_on_grid[i,j])
+        end
+    end
+    plot_f = plot(X,Y,Z,st = [:surface],camera = (0,90),xlabel = "x", ylabel="v")
+
+    return time, elec_energy, mass, momentum, total_energy, grid_v, mesh_x, u, rho_tot, plot_f
 
 end
-@time time, elec_energy, grid_v, mesh_x, u, rho_tot = main(true)
-#Reconstruct mean_f0 to check
-#    plot(grid_v.v,grid_v.w,seriestype=:scatter)
-#    plot!(grid_v.v,mf0,seriestype=:scatter)
-plot(time, elec_energy, yaxis = :log, label = "UniformGrid")
+@time time, elec_energy, mass, momentum, total_energy, grid_v, mesh_x, u, rho_tot, plot_f = main(true)
+plot(time,elec_energy,yaxis = :log)
 
+#plot(mesh_x.x,u[:,grid_v.nv/2-10:grid_v.nv/2+10], legend = false)
+
+#p_1 = plot(time, elec_energy, yaxis = :log, label = "UniformGrid")
+#p_2 = plot(X,Y,Z,st = [:surface], label="f")
+#plot!(p_2,camera = (0,90))
 # @time t, elec_energy = main(true)
-# plot!(t, elec_energy, yaxis = :log, label = "hermite")
+#plot!(t, elec_energy, yaxis = :log, label = "hermite")
 
 # line, ω, = fit_complex_frequency(t, elec_energy, use_peaks = 1:2)
 # plot!(time, line; yaxis = :log)
