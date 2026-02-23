@@ -14,12 +14,12 @@ struct GaussHermiteGrid <: AbstractGrid
     T::Float64
     u0::Float64
 
-    function GaussHermiteGrid(nv,T)
+    function GaussHermiteGrid(nv,T,mesh_x,test_case)
         v , w = gausshermite(nv) 
         dv = 1.0
         for i in 1:nv
             v[i] = sqrt(2*T) * v[i]
-            w[i] = w[i] * mean_f0(v[i],T,u0) * exp(v[i]*v[i]/(2*T)) * sqrt(2*T)
+            w[i] = w[i] * mean_f0(v[i],T,mesh_x,test_case) * exp(v[i]*v[i]/(2*T)) * sqrt(2*T)
             if(i<= nv-1)
                 dv = min(dv,abs(v[i+1]-v[i]))
             end
@@ -37,9 +37,8 @@ struct UniformGrid <: AbstractGrid
     dv::Float64
     w::Vector{Float64}
     T::Float64
-    u0::Float64
 
-    function UniformGrid(vmin, vmax, nv,T,u0)
+    function UniformGrid(vmin, vmax, nv,T,mesh_x,test_case)
         
         sf0 = 0.0
         dv = Float64
@@ -47,12 +46,12 @@ struct UniformGrid <: AbstractGrid
         v = LinRange(vmin,vmax,nv)
         w = zeros(nv)
         for i in 1:nv
-            sf0+= mean_f0(v[i],T,u0) * dv 
+            sf0+= mean_f0(v[i],T,mesh_x,test_case) * dv 
         end
         for i in 1:nv
-            w[i] = mean_f0(v[i],T,u0) * dv / sf0
+            w[i] = mean_f0(v[i],T,mesh_x,test_case) * dv / sf0
         end
-        new(nv, v, dv, w, T,u0)
+        new(nv, v, dv, w, T)
     end
 
 end
@@ -109,16 +108,16 @@ struct MonteCarloGrid <:AbstractGrid
     v::Vector{Float64}
     w::Vector{Float64}
     u0::Float64
-    function MonteCarloGrid(nv,T,u0)
+    function MonteCarloGrid(nv,T,u0,mesh_x,test_case)
         v = sample_maxwellian(T,u0,nv)
         v = sort(v)
         w = zeros(nv)
         sf0 = 0.0
         for i in 1:nv-1
-            sf0+= mean_f0(v[i],T,u0) * (v[i+1]-v[i])
+            sf0+= mean_f0(v[i],T,mesh_x,test_case) * (v[i+1]-v[i])
         end
         for i in 1:nv-1
-            w[i] = mean_f0(v[i],T,u0)*(v[i+1]-v[i])/sf0
+            w[i] = mean_f0(v[i],T,mesh_x,test_case)*(v[i+1]-v[i])/sf0
         end
         new(nv,v,w,u0)
     end

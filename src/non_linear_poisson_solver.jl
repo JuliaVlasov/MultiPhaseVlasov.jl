@@ -110,15 +110,12 @@ Solve the elliptic problem: ϵ^2 Δϕ = ρ-1  on the Torus.
 
 Uses Fourier method.
 """
-function poisson!(phi::Vector{Float64}, mesh::UniformMesh, rho_tot::Vector{Float64})
+function poisson!(phi::Vector{Float64}, mesh::UniformMesh, rho_tot::Vector{Float64}, eps::Float64)
 
 rho_tot_f=fft(rho_tot.-1)
 rho_tot_f[1]=0
 kkx=mesh.kx
 kkx[1]=1
-phi.=-real(ifft((rho_tot_f./(kkx.*kkx))))
-
-
-
+phi.=-real(ifft((rho_tot_f./(kkx.*kkx))))/(eps*eps)
 
 end
