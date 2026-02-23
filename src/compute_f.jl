@@ -6,16 +6,16 @@ function interpolate_f_on_grid(mesh_x::AbstractMesh, grid_v::UniformGrid,rho::Ma
     nx = mesh_x.nx
     nv = grid_v.nv
     dv = grid_v.dv
-    rf = zeros(nx+1,nv)
+    f_grid = zeros(nx+1,nv)
     for i in 1: (nx+1)
         for j in 1:nv
             for l in 1:nv
                 v_j = grid_v.v[j]
-                rf[i,j] += grid_v.w[l] * rho[i,l] * Spline(v_j-u[i,l],dv) ##Naive approchae we do not localize v_j-u_{i,l} to optimize later
+                f_grid[i,j] += grid_v.w[l] * rho[i,l] * Spline(v_j-u[i,l],dv) ##Naive approchae we do not localize v_j-u_{i,l} to optimize later
             end
         end
     end
-    return rf
+    return f_grid
 end
 #This works only for uniform grid for the moment
 function remap_f_on_uniform_grid(mesh_x::AbstractMesh, grid_v::UniformGrid, rho::Matrix{Float64}, u::Matrix{Float64})
@@ -27,19 +27,19 @@ function remap_f_on_uniform_grid(mesh_x::AbstractMesh, grid_v::UniformGrid, rho:
     new_rho = zeros(nx+1, nv)
     new_u   = zeros(nx+1, nv)
     #Reinitiaize rho and u on uniform grid
-    @threads for l in 1:nv
+    for l in 1:nv
         for i in 1:(nx+1)
             new_u[i,l] = grid_v.v[l]
             new_rho[i,l] = evaluate_f_on(i,l,grid_v,rho,u)/ evaluate_mean_f_on(l,mesh_x,grid_v,rho,u)
         end
     end
     #Compute the new weights
-    @threads for l in 1:nv
+    for l in 1:nv
         new_weights[l] = evaluate_mean_f_on(l,mesh_x,grid_v,rho,u) * dv
         new_SF+= new_weights[l]
     end
     #Update the weights
-    @threads for l in 1:nv
+    for l in 1:nv
         new_weights[l] *=(1.0/new_SF)
         grid_v.w[l] = new_weights[l]
     end
@@ -65,8 +65,8 @@ function evaluate_mean_f_on(j::Int,mesh_x::AbstractMesh,grid_v::UniformGrid,rho:
     dx = mesh_x.dx
     v_j = grid_v.v[j]
     for  l in 1:nv
-        for i in 1:(nx+1)
-            mean_f+= (grid_v.w[l] * rho[i,l] * Spline(v_j-u[i,l],dv) * dx) /(mesh_x.x[nx+1]- mesh_x.x[1])
+        for i in 1:(nx+1) #Rectangle formula
+            mean_f+= (grid_v.w[l] * rho[i,l] * Spline(v_j-u[i,l],dv) * dx) /(mesh_x.L)
         end
     end
     return mean_f
@@ -74,14 +74,14 @@ end
 
 
 
-#Spline of order 2 supp S_2 = [-1.5 h , 1.5 h]
+#Spline of order 3 supp S_3 = [-2 h , 2 h]
 function Spline(x::Float64,h::Float64)
-    if( 0.5 * h < abs(x) < 1.5 * h)
-        S = (0.5 * (1.5-abs(x/h))*(1.5-abs(x/h)))/h
-    elseif ( abs(x) < 0.5 * h)
-        S = ((3.0/4.0) -(x/h)*(x/h))/h
+    if(  h < abs(x) < 2 * h)
+        S = (1.0/6.0) * ( (2-abs(x/h))*(2-abs(x/h)) * (2-abs(x/h)) )
+    elseif ( abs(x) <  h)
+        S = (1.0/6.0)* ( 4.0 -6.0*(abs(x/h)*abs(x/h)) + 3.0*(abs(x/h)*abs(x/h)*abs(x/h)) )
     else
         S = 0
     end
-    return S
+    return S/h
 end

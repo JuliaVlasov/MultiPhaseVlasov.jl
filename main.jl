@@ -3,22 +3,22 @@ using LinearAlgebra
 using MultiStreamVlasovPoisson
 using Plots
 using .Threads
-global k = 0.5          #Wave number
-global u0 = 0.0         #Mean Velocity : 1) u0 = 0 Maxwellian, 2) u0 !=0 Two streams
-global T = 1.0          #Temperature
-global L  = 2π / k      #Size of the domain
-global eps = 1.0        #Debye length
+global k = 0.5                #Wave number
+global test_case::String      #test_case =  {landau_damping,two_streams,mono_kinetic}
+global T = 0.1               #Temperature
+global L  = 2π / k            #Size of the domain
+global eps = 0.1              #Debye length
 
 function main(hermite_quad)
-    nx, xmin, xmax = 256, 0.0, L
+    test_case = "mono_kinetic"
+    nx, xmin, xmax = 128, 0.0, L
     mesh_x = UniformMesh(xmin,xmax,nx)
-    nv, vmin, vmax = 256, -6.0, 6.0 
-    grid_v = UniformGrid(vmin, vmax, nv, T,u0)
-
+    nv, vmin, vmax = 128, -6.0, 6.0 
+    grid_v = UniformGrid(vmin, vmax, nv, T,mesh_x,test_case)
     #Compute the initial condition
-    rho, u, rho_tot = compute_initial_condition(mesh_x,grid_v,k,T,u0)
+    rho, u, rho_tot = compute_initial_condition(mesh_x,grid_v,k,T,test_case)
     phi = zeros(nx+1)
-    poisson!(phi, mesh_x, rho_tot)
+    poisson!(phi, mesh_x, rho_tot, eps)
 
     #Initialize the streams
     u_at_step_n   = zeros(nx + 1,nv)    
@@ -26,8 +26,9 @@ function main(hermite_quad)
 
     #Set the CFL number and the final time
     dt =  0.1*mesh_x.dx
-    tfinal = 50
+    tfinal = 20
     time = [0.0]
+    remap_time = 0.0
 
     #Array of physical quantities 
     elec_energy     = [compute_elec_energy(phi, mesh_x, eps)]
@@ -44,16 +45,16 @@ function main(hermite_quad)
         norm_dx_u = 0.0
         #Compute the discrete L^{\infty} norm of the gradient of the velocities
         norm_dx_u = compute_norm_dx_u(mesh_x,grid_v,u)
-        threshold = 1.0/(n*dt)
+        threshold = 0.5/(n*dt-remap_time)
         if(norm_dx_u > threshold )
-            println("Remapping f at time = $(n*dt)")
+            println("Remapping f at time = $(n*dt),  threshold = $threshold, dxu = $norm_dx_u")
+            remap_time = n * dt
             rho, u = remap_f_on_uniform_grid(mesh_x,grid_v,rho,u)
         end
         copyto!(rho_at_step_n, rho)
         copyto!(u_at_step_n, u)	
         old_u = zeros(nx + 1,nv)
-       
-       #Fixed point lopp to solve the non linear MultiStream pressureless Euler-Poisson system
+       #Fixed point loop to solve the non linear MultiStream pressureless Euler-Poisson system
         while norm(u .- old_u, Inf) / norm(u, Inf) > err && iter < maxiter
             #Update rho : the streams are packed into groups that are solved on each threads
             @threads for j in 1:nv	 
@@ -62,7 +63,7 @@ function main(hermite_quad)
             #Assemble rho
 	        compute_rho_total!(rho_tot,grid_v,rho)
             #Solve Poisson
-	        poisson!(phi, mesh_x, rho_tot)	  
+	        poisson!(phi, mesh_x, rho_tot,eps)	  
             copyto!(old_u, u)
             #Update u : the streams are packed into groups that are solved on each threads
 	        @threads for j in 1:nv
@@ -87,19 +88,22 @@ function main(hermite_quad)
     X = []
     Y = []
     Z = []
+    ZZ = []
     for i in 1:nx+1
         for j in 1:nv
             X = push!(X,mesh_x.x[i])
             Y = push!(Y,grid_v.v[j])
             Z = push!(Z,f_on_grid[i,j])
+            ZZ = push!(ZZ,f_on_grid[i,j]-exp(-0.5*grid_v.v[j]*grid_v.v[j]/T)/sqrt(2*π*T))
         end
     end
     plot_f = plot(X,Y,Z,st = [:surface],camera = (0,90),xlabel = "x", ylabel="v")
+    plot_df = plot(X,Y,ZZ,st = [:surface],camera = (0,90),xlabel = "x", ylabel="v")
 
-    return time, elec_energy, mass, momentum, total_energy, grid_v, mesh_x, u, rho_tot, plot_f
+    return time, elec_energy, mass, momentum, total_energy, grid_v, mesh_x, u, rho_tot, plot_f, plot_df
 
 end
-@time time, elec_energy, mass, momentum, total_energy, grid_v, mesh_x, u, rho_tot, plot_f = main(true)
+@time time, elec_energy, mass, momentum, total_energy, grid_v, mesh_x, u, rho_tot, plot_f, plot_df = main(true)
 plot(time,elec_energy,yaxis = :log)
 
 #plot(mesh_x.x,u[:,grid_v.nv/2-10:grid_v.nv/2+10], legend = false)
