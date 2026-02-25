@@ -2,8 +2,26 @@
 
 Documentation for MultiStreamVlasovPoisson.jl
 
+## Sources
 
-## Installation
+```
+git clone git@gitlab.inria.fr:mingus/code-vp-multistream.git
+cd code-vp-multistream
+```
+
+## Install and Run
+
+```
+julia
+julia> import Pkg
+julia> Pkg.update() # update your Julia setup
+julia> Pkg.add("Plots") # Install the plot library
+julia> Pkg.activate(pwd()) # Activate the local environment
+julia> Pkg.instantiate() # Install package dependencies
+julia> include("main.jl") # Run the example
+```
+
+## Example
 
 ```@example main
 using MultiStreamVlasovPoisson
