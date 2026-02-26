@@ -35,7 +35,7 @@ function mean_f0(v::Float64, T::Float64,mesh_x::AbstractMesh,test_case::String):
     for i in 1:(nx+1)
         x = mesh_x.x[i]
         u0 = u_ini(x,k,test_case)
-        mf0+= (f0(x,v,k,T,u0,test_case) * dx)/L
+        mf0+= (f0(x,v,k,T,u0,test_case) * dx)
     end
     return mf0
 end

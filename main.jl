@@ -12,13 +12,12 @@ global T = 1.0                #Temperature
 global L  = 2π / k            #Size of the domain
 global eps = 1.0              #Debye length
 global solver::String         #SOLVER = {FV,SL} First Order Implicit AP Finite Volume Schem or Cubic Implicit Semi-Lagragian scheme
-
 function main(hermite_quad)
     test_case = "landau_damping"
     solver    = "SL"
     nx, xmin, xmax = 128, 0.0, L
     mesh_x = UniformMesh(xmin,xmax,nx)
-    nv, vmin, vmax = 256, -6.0, 6.0
+    nv, vmin, vmax = 128, -6.0, 6.0
     grid_v = UniformGrid(vmin, vmax, nv, T,mesh_x,test_case)
     rho, u, rho_tot = compute_initial_condition(mesh_x,grid_v,k,T,test_case)
     phi = zeros(nx+1)
@@ -37,7 +36,7 @@ function main(hermite_quad)
 
     #Set the CFL number and the final time
     dt =  0.1*mesh_x.dx
-    tfinal = 40
+    tfinal = 10
     time = [0.0]
     remap_time = 0.0
 
@@ -142,7 +141,7 @@ function main(hermite_quad)
         end
 
     end
-    gif(anim, "fig/mono_kinetic_SL+REMP.gif", fps = 15)
+    gif(anim, "fig/two_streams_SL+REMAP.gif", fps = 15)
     
 
     #Plot the final distribution function
