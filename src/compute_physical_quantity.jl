@@ -20,7 +20,7 @@ end
 
 function compute_total_mass(rho_tot::Vector{Float64},mesh::AbstractMesh)
     mass = 0.0
-    nx, dx = mesh.nx, mesh.dx
+    nx, dx, L = mesh.nx, mesh.dx, mesh.L
     for i in 1:(nx+1)
         mass += dx * rho_tot[i]
     end

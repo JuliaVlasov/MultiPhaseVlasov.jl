@@ -116,6 +116,8 @@ rho_tot_f=fft(rho_tot.-1)
 rho_tot_f[1]=0
 kkx=mesh.kx
 kkx[1]=1
-phi.=+real(ifft((rho_tot_f./(kkx.*kkx))))/(eps*eps)
+#ff_PB= (eps*eps)*kkx .* kkx.+ 1.0
+ff_P = (eps*eps)*kkx.* kkx
+phi.=+real(ifft((rho_tot_f./(ff_P))))
 
 end

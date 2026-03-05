@@ -49,7 +49,7 @@ struct UniformGrid <: AbstractGrid
             sf0+= mean_f0(v[i],T,mesh_x,test_case) * dv 
         end
         for i in 1:nv
-            w[i] = mean_f0(v[i],T,mesh_x,test_case) * dv / sf0
+            w[i] = mean_f0(v[i],T,mesh_x,test_case) * dv / (sf0)
         end
         new(nv, v, dv, w, T)
     end

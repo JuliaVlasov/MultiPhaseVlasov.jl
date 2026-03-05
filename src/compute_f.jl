@@ -63,10 +63,11 @@ function evaluate_mean_f_on(j::Int,mesh_x::AbstractMesh,grid_v::UniformGrid,rho:
     dv = grid_v.dv
     nx = mesh_x.nx
     dx = mesh_x.dx
+    L  = mesh_x.L
     v_j = grid_v.v[j]
     for  l in 1:nv
         for i in 1:(nx+1) #Rectangle formula
-            mean_f+= (grid_v.w[l] * rho[i,l] * Spline(v_j-u[i,l],dv) * dx) / 1.0 
+            mean_f+= (grid_v.w[l] * rho[i,l] * Spline(v_j-u[i,l],dv) * dx) / L 
         end
     end
     return mean_f

@@ -8,7 +8,7 @@ using .Threads
 
 global k = 0.5                #Wave number
 global test_case::String      #test_case =  {landau_damping,two_streams,mono_kinetic}
-global T = 1.0                #Temperature
+global T = 1.0               #Temperature
 global L  = 2π / k            #Size of the domain
 global eps = 1.0              #Debye length
 global solver::String         #SOLVER = {FV,SL} First Order Implicit AP Finite Volume Schem or Cubic Implicit Semi-Lagragian scheme
@@ -17,7 +17,7 @@ function main(hermite_quad)
     solver    = "SL"
     nx, xmin, xmax = 128, 0.0, L
     mesh_x = UniformMesh(xmin,xmax,nx)
-    nv, vmin, vmax = 128, -6.0, 6.0
+    nv, vmin, vmax = 64, -6.0, 6.0
     grid_v = UniformGrid(vmin, vmax, nv, T,mesh_x,test_case)
     rho, u, rho_tot = compute_initial_condition(mesh_x,grid_v,k,T,test_case)
     phi = zeros(nx+1)
@@ -35,8 +35,8 @@ function main(hermite_quad)
     rho_at_step_n = zeros(nx + 1,nv)    
 
     #Set the CFL number and the final time
-    dt =  0.1*mesh_x.dx
-    tfinal = 10
+    dt =  1.0*mesh_x.dx
+    tfinal = 80
     time = [0.0]
     remap_time = 0.0
 
@@ -48,19 +48,19 @@ function main(hermite_quad)
 
     #Temporal loop
     n = 0
-    anim = Animation()
-
+    #anim = Animation()
+    norm_dx_u = 0.0 # To compute the remapping criterion
   while n * dt <= tfinal
 	    iter = 0
         err=1e-10
 	    maxiter=50
-        norm_dx_u = 0.0
-        norm_dx_u = compute_norm_dx_u(mesh_x,grid_v,u)
-        threshold = 0.5/(n*dt-remap_time)
+        norm_dx_u += dt*compute_norm_dx_u(mesh_x,grid_v,u)
+        threshold = 0.01 #0.1/(n*dt-remap_time) #Mon critère de remap est mieux pour le Landau damping
         if(norm_dx_u > threshold )
             println("Remapping f at time = $(n*dt),  threshold = $threshold, dxu = $norm_dx_u")
             remap_time = n * dt
             rho, u = remap_f_on_uniform_grid(mesh_x,grid_v,rho,u)
+            norm_dx_u = 0.0
         end
         
         if(solver=="FV")
@@ -118,10 +118,10 @@ function main(hermite_quad)
         push!(total_energy,compute_elec_energy(phi, mesh_x, eps) + compute_kinetic_energy(rho,u,mesh_x,grid_v))
         n += 1
         push!(time, n * dt)
-        println("iteration: $n , time = $(n * dt), elec energy = $(last(elec_energy)), mass = $(last(mass)),   ||dxU|| = $norm_dx_u")
+        println("iteration: $n , time = $(n * dt), elec energy = $(last(elec_energy)), mass = $(last(mass)),   int_{t_ini}^{T}||dxU||dt = $norm_dx_u")
         #Movie of the the solution
         per = 100 #Plot every 100 iterations
-        if(mod(n,per) == 1)
+        if(mod(n,per) == 100000)
             f_on_grid =  interpolate_f_on_grid(mesh_x,grid_v,rho,u)
             X = []
             Y = []
@@ -135,13 +135,13 @@ function main(hermite_quad)
                     #ZZ = push!(ZZ,f_on_grid[i,j]-exp(-0.5*grid_v.v[j]*grid_v.v[j]/T)/sqrt(2*π*T))
                 end
             end
-            p = plot(X,Y,Z,st = [:surface],camera = (0,90),xlabel = "x", ylabel="v",)
-            plot!(p; ylims=(-6.,6.))
-            frame(anim)
+            #p = plot(X,Y,Z,st = [:surface],camera = (0,90),xlabel = "x", ylabel="v",)
+            #plot!(p; ylims=(-6.,6.))
+            #frame(anim)
         end
 
     end
-    gif(anim, "fig/two_streams_SL+REMAP.gif", fps = 15)
+    #gif(anim, "fig/two_streams_SL+REMAP.gif", fps = 15)
     
 
     #Plot the final distribution function
