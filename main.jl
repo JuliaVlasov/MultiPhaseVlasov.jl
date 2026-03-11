@@ -17,7 +17,7 @@ function main(hermite_quad)
     solver    = "SL"
     nx, xmin, xmax = 128, 0.0, L
     mesh_x = UniformMesh(xmin,xmax,nx)
-    nv, vmin, vmax = 64, -6.0, 6.0
+    nv, vmin, vmax = 128, -6.0, 6.0
     grid_v = UniformGrid(vmin, vmax, nv, T,mesh_x,test_case)
     rho, u, rho_tot = compute_initial_condition(mesh_x,grid_v,k,T,test_case)
     phi = zeros(nx+1)
@@ -50,14 +50,17 @@ function main(hermite_quad)
     n = 0
     #anim = Animation()
     norm_dx_u = 0.0 # To compute the remapping criterion
+    norm_rho  = 0.0
+    remap_time = 0.0
   while n * dt <= tfinal
 	    iter = 0
         err=1e-10
 	    maxiter=50
         norm_dx_u += dt*compute_norm_dx_u(mesh_x,grid_v,u)
-        threshold = 0.01 #0.1/(n*dt-remap_time) #Mon critère de remap est mieux pour le Landau damping
-        if(norm_dx_u > threshold )
-            println("Remapping f at time = $(n*dt),  threshold = $threshold, dxu = $norm_dx_u")
+        norm_rho   = norm(rho_tot.-1,Inf)
+        threshold = 0.1 * sqrt(2/(eps*eps*norm_rho)) #0.1/(n*dt-remap_time) #Mon critère de remap est mieux pour le Landau damping
+        if(n*dt - remap_time > threshold )
+            println("Remapping f at time = $(n*dt),  threshold = $threshold,")
             remap_time = n * dt
             rho, u = remap_f_on_uniform_grid(mesh_x,grid_v,rho,u)
             norm_dx_u = 0.0

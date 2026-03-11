@@ -46,7 +46,7 @@ struct UniformGrid <: AbstractGrid
         v = LinRange(vmin,vmax,nv)
         w = zeros(nv)
         for i in 1:nv
-            sf0+= mean_f0(v[i],T,mesh_x,test_case) * dv 
+            sf0+= mean_f0(v[i],T,mesh_x,test_case) * dv  
         end
         for i in 1:nv
             w[i] = mean_f0(v[i],T,mesh_x,test_case) * dv / (sf0)

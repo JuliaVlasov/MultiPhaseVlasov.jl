@@ -6,6 +6,7 @@ export u_ini
 1) Maxwellian case is when (u_0 = 0)
 2) Two stream case is when (u_0 != 0)
 $(SIGNATURES)
+The convention in this code is :  ||f_0||_{L^1_x,v} / L = 1
 Mean of the initial condition in x // The perturbation in x must be of zero mean
 """
 #function mean_f0(v::Float64, T::Float64,u0::Float64)::Float64
