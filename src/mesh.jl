@@ -1,8 +1,10 @@
 abstract type AbstractMesh
 end
-
 export UniformMesh
-
+"""
+$(SIGNATURES)
+Define the spatial mesh
+"""
 struct UniformMesh <:AbstractMesh
     nx::Int
     x::Vector{Float64}

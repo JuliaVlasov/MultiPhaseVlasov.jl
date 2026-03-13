@@ -2,11 +2,10 @@ export compute_elec_energy
 export compute_total_mass
 export compute_momentum
 export compute_kinetic_energy
-
+export compute_norm_dx_u
 """
 $(SIGNATURES)
-    
-Compute the electric energy.
+Compute the electric energy and its square root with a rectangle fomrula
 """
 function compute_elec_energy(phi::Vector{Float64}, mesh::AbstractMesh, eps)::Float64
     e = 0.0
@@ -17,7 +16,10 @@ function compute_elec_energy(phi::Vector{Float64}, mesh::AbstractMesh, eps)::Flo
     end
     return sqrt(e)
 end
-
+"""
+$(SIGNATURES)
+Compute the total mass
+"""
 function compute_total_mass(rho_tot::Vector{Float64},mesh::AbstractMesh)
     mass = 0.0
     nx, dx, L = mesh.nx, mesh.dx, mesh.L
@@ -27,6 +29,10 @@ function compute_total_mass(rho_tot::Vector{Float64},mesh::AbstractMesh)
     return mass
 end
 
+"""
+$(SIGNATURES)
+Compute the total momentum
+"""
 function compute_momentum(rho::Matrix{Float64},u::Matrix{Float64},mesh::AbstractMesh,grid_v::AbstractGrid)
     momentum = 0.0
     nx, dx = mesh.nx, mesh.dx
@@ -38,7 +44,10 @@ function compute_momentum(rho::Matrix{Float64},u::Matrix{Float64},mesh::Abstract
     end
     return momentum
 end
-
+"""
+$(SIGNATURES)
+Compute the total kinetic energy
+"""
 function compute_kinetic_energy(rho::Matrix{Float64},u::Matrix{Float64},mesh::AbstractMesh,grid_v::AbstractGrid)
     kinetic_energy = 0.0
     nx, dx = mesh.nx, mesh.dx
@@ -49,6 +58,24 @@ function compute_kinetic_energy(rho::Matrix{Float64},u::Matrix{Float64},mesh::Ab
         end
     end
     return kinetic_energy
+end
+
+"""
+$(SIGNATURES)
+Compute the || dx U(t) ||_{L^{infty}(alpha)L^(infty)(T)}
+"""
+function compute_norm_dx_u(mesh_x::AbstractMesh, grid_v::AbstractGrid,u::Matrix{Float64})
+    nv = grid_v.nv
+    nx = mesh_x.nx
+    dx = mesh_x.dx
+    dx_u = 0.0
+    for l in 1:nv
+        for i in 1:(nx)
+            du = abs((u[i+1,l]-u[i,l])/dx)
+            dx_u = max(dx_u, du)
+        end
+    end
+    return dx_u
 end
 
 

@@ -4,27 +4,25 @@ using MultiStreamVlasovPoisson
 using Plots
 using .Threads
 
-" Vlasov-Poisson solver "
 
-global k = 0.5                #Wave number
+global k = 0.2                #Wave number
 global test_case::String      #test_case =  {landau_damping,two_streams,mono_kinetic}
-global T = 1.0               #Temperature
+global T = 1.0                #Temperature of the Maxwellian
 global L  = 2π / k            #Size of the domain
 global eps = 1.0              #Debye length
 global solver::String         #SOLVER = {FV,SL} First Order Implicit AP Finite Volume Schem or Cubic Implicit Semi-Lagragian scheme
 function main(hermite_quad)
-    test_case = "landau_damping"
+    test_case = "two_streams"
     solver    = "SL"
     nx, xmin, xmax = 128, 0.0, L
     mesh_x = UniformMesh(xmin,xmax,nx)
-    nv, vmin, vmax = 128, -6.0, 6.0
+    nv, vmin, vmax = 300, -6.0, 6.0
     grid_v = UniformGrid(vmin, vmax, nv, T,mesh_x,test_case)
     rho, u, rho_tot = compute_initial_condition(mesh_x,grid_v,k,T,test_case)
     phi = zeros(nx+1)
     poisson!(phi, mesh_x, rho_tot, eps)
     E = -1.0*compute_dx!(phi,mesh_x)
     if(solver == "SL")
-        #For the semi-lagragian scheme
         x_feet_mesh = zeros(nx+1,nv)
         rho_pred    = zeros(nx+1,nv)
         phi_pred    = zeros(nx+1)
@@ -35,8 +33,8 @@ function main(hermite_quad)
     rho_at_step_n = zeros(nx + 1,nv)    
 
     #Set the CFL number and the final time
-    dt =  1.0*mesh_x.dx
-    tfinal = 80
+    dt =  0.1 #1.0*mesh_x.dx
+    tfinal = 200
     time = [0.0]
     remap_time = 0.0
 
@@ -48,22 +46,20 @@ function main(hermite_quad)
 
     #Temporal loop
     n = 0
-    #anim = Animation()
-    norm_dx_u = 0.0 # To compute the remapping criterion
-    norm_rho  = 0.0
+    anim = Animation()
+    sum_norm_dx_u = 0.0 
     remap_time = 0.0
   while n * dt <= tfinal
 	    iter = 0
         err=1e-10
 	    maxiter=50
-        norm_dx_u += dt*compute_norm_dx_u(mesh_x,grid_v,u)
-        norm_rho   = norm(rho_tot.-1,Inf)
-        threshold = 0.1 * sqrt(2/(eps*eps*norm_rho)) #0.1/(n*dt-remap_time) #Mon critère de remap est mieux pour le Landau damping
-        if(n*dt - remap_time > threshold )
-            println("Remapping f at time = $(n*dt),  threshold = $threshold,")
+        sum_norm_dx_u += dt*compute_norm_dx_u(mesh_x,grid_v,u)
+        threshold = 0.3 
+        if(sum_norm_dx_u > threshold )
+            println("Remapping f at time = $(n*dt)")
             remap_time = n * dt
             rho, u = remap_f_on_uniform_grid(mesh_x,grid_v,rho,u)
-            norm_dx_u = 0.0
+            sum_norm_dx_u = 0.0
         end
         
         if(solver=="FV")
@@ -100,9 +96,7 @@ function main(hermite_quad)
 	        compute_rho_total!(rho_tot,grid_v,rho_pred)
             #Solve Poisson 
 	        poisson!(phi_pred, mesh_x, rho_tot,eps)
-            #display(phi_pred)
             E_pred = -1.0.*compute_dx!(phi_pred,mesh_x)
-            #display(E_plus)
             @threads for j in 1:nv
                 update_u_SL!(mesh_x, E, E_pred, view(u,:,j), view(u_at_step_n,:,j), dt,view(x_feet_mesh,:,j))
                 update_rho_corrector_SL!(mesh_x, view(rho,:,j), view(rho_at_step_n, : ,j), view(u_at_step_n,:,j),view(u,:,j), dt, view(x_feet_mesh,:,j))
@@ -121,76 +115,58 @@ function main(hermite_quad)
         push!(total_energy,compute_elec_energy(phi, mesh_x, eps) + compute_kinetic_energy(rho,u,mesh_x,grid_v))
         n += 1
         push!(time, n * dt)
-        println("iteration: $n , time = $(n * dt), elec energy = $(last(elec_energy)), mass = $(last(mass)),   int_{t_ini}^{T}||dxU||dt = $norm_dx_u")
-        #Movie of the the solution
-        per = 100 #Plot every 100 iterations
-        if(mod(n,per) == 100000)
+        println("iteration = $n, time = $(n * dt) , tr = $remap_time:")
+        println("||E|| = $(last(elec_energy)), Mass = $(last(mass)), int_[tr,time] ||dxU(t)||dt = $sum_norm_dx_u")
+        #Make the animation : evolution of the surface plot of the distribution function
+        per = 20 #Plot every 100 iterations
+        if(mod(n,per) == 1)
             f_on_grid =  interpolate_f_on_grid(mesh_x,grid_v,rho,u)
             X = []
             Y = []
             Z = []
-            #ZZ = []
             for i in 1:nx+1
                 for j in 1:nv
                     X = push!(X,mesh_x.x[i])
                     Y = push!(Y,grid_v.v[j])
                     Z = push!(Z,f_on_grid[i,j])
-                    #ZZ = push!(ZZ,f_on_grid[i,j]-exp(-0.5*grid_v.v[j]*grid_v.v[j]/T)/sqrt(2*π*T))
                 end
             end
-            #p = plot(X,Y,Z,st = [:surface],camera = (0,90),xlabel = "x", ylabel="v",)
-            #plot!(p; ylims=(-6.,6.))
-            #frame(anim)
+            p = plot(X,Y,Z,st = [:surface],camera = (0,90),xlabel = "x", ylabel="v",)
+            plot!(p; ylims=(-6.,6.))
+            frame(anim)
         end
 
     end
-    #gif(anim, "fig/two_streams_SL+REMAP.gif", fps = 15)
-    
-
+    gif(anim, "fig/two_streams_SL+REMAP.gif", fps = 15)
     #Plot the final distribution function
     f_on_grid =  interpolate_f_on_grid(mesh_x,grid_v,rho,u)
     X = []
     Y = []
     Z = []
-    ZZ = []
     for i in 1:nx+1
         for j in 1:nv
             X = push!(X,mesh_x.x[i])
             Y = push!(Y,grid_v.v[j])
             Z = push!(Z,f_on_grid[i,j])
-            ZZ = push!(ZZ,f_on_grid[i,j]-exp(-0.5*grid_v.v[j]*grid_v.v[j]/T)/sqrt(2*π*T))
         end
     end
     plot_f = plot(X,Y,Z,st = [:surface],camera = (0,90),xlabel = "x", ylabel="v")
-    plot_df = plot(X,Y,ZZ,st = [:surface],camera = (0,90),xlabel = "x", ylabel="v")
-
-    return time, elec_energy, mass, momentum, total_energy, grid_v, mesh_x, u, rho_tot, plot_f, plot_df, phi, E
+    return time, elec_energy, mass, momentum, total_energy, grid_v, mesh_x, u, rho_tot, plot_f, phi, E
 
 end
-@time time, elec_energy, mass, momentum, total_energy, grid_v, mesh_x, u, rho_tot, plot_f, plot_df,phi,E = main(true)
+@time time, elec_energy, mass, momentum, total_energy, grid_v, mesh_x, u, rho_tot, plot_f,phi, E = main(true)
 plot(time,log.(elec_energy))
 
-#plot(mesh_x.x,u[:,grid_v.nv/2-10:grid_v.nv/2+10], legend = false)
 
-#p_1 = plot(time, elec_energy, yaxis = :log, label = "UniformGrid")
-#p_2 = plot(X,Y,Z,st = [:surface], label="f")
-#plot!(p_2,camera = (0,90))
-# @time t, elec_energy = main(true)
-#plot!(t, elec_energy, yaxis = :log, label = "hermite")
+#These are the reference solution electric energy evolution for the linear landau damping
+# Copy and paste in the Julia Terminal the solution you are interested in.
+#When k=0.5, we have from Eric's book:
+#E_k(t)=4.*a.*0.3677.*exp.(-0.1533.*t).*sqrt.(2pi).*abs.(cos(1.4156.*t-0.536245))
+#plot(time,log.(elec_energy))
+#plot!(time,log.(0.01.*exp.(-0.1533.*time).*sqrt(2*pi).*abs.(cos.(1.4156.*time.-0.536245))))           for a=0.01
+#plot!(time,log.(0.0025.*0.3677.*exp.(-0.1533.*time).*sqrt(2*pi).*abs.(cos.(1.4156.*time.-0.536245))))  for a=0.001
 
+#This is a tool to compute the slope of the electric energy evolution
 # line, ω, = fit_complex_frequency(t, elec_energy, use_peaks = 1:2)
 # plot!(time, line; yaxis = :log)
 # title!("ω = $(imag(ω))")
-
-
-#for k=0.4, we have from Eric's book (a=0.001)
-#E_k(t)=0.002.*0.424666.*exp.(-0.0661.*t).*abs.(cos.(1.285.*t.−0.3357725)))
-#plot(t,log.(elec_energy))
-#plot!(t,log.(0.002.*0.42466.*exp.(-0.0661.*t).*abs.(cos.(1.285.*t.-0.33577))))
-#plot!(t,log.(0.0075.*0.42466.*exp.(-0.0661.*t).*abs.(cos.(1.285.*t.-0.33577))))   for a=0.001
-
-#for k=0.5, we have from Eric's book
-#E_k(t)=4.*a.*0.3677.*exp.(-0.1533.*t).*sqrt.(2pi).*abs.(cos(1.4156.*t-0.536245))
-#plot(t,log.(elec_energy))
-#plot!(t,log.(0.01.*exp.(-0.1533.*t).*sqrt(2*pi).*abs.(cos.(1.4156.*t.-0.536245))))           for a=0.01
-#plot!(t,log.(0.0025.*0.3677.*exp.(-0.1533.*t).*sqrt(2*pi).*abs.(cos.(1.4156.*t.-0.536245))))  for a=0.001

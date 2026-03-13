@@ -105,8 +105,7 @@ end
 
 """
 $(SIGNATURES)
-
-Update one single fluid solution using fixed-point iteration.
+Update one single rho^{alpha) in the fixed point scheme
 """
 function update_rho!(
         mesh::AbstractMesh, rho::AbstractVector, u::AbstractVector,
@@ -135,8 +134,7 @@ end
 
 """
 $(SIGNATURES)
-
-Update one single fluid solution using fixed-point iteration.
+Update one single fluid solution using fixed-point method
 """
 function update_u!(
         mesh::AbstractMesh, rho::AbstractVector, u::AbstractVector,
@@ -201,11 +199,10 @@ function update_u!(
 
 end
 
+
 """
 $(SIGNATURES)
-Update one single fluid solution with :
-1) cubic interpolation 
-2) Semi Laggrangian scheme with trapeze rules for the integral of the force
+Local lagrange interpolation polynomial of degree 3
 """
 
 #Compute the local lagrange polynomial at $x_i = (i-1)*dx$, L_{i+k}(y) with k =-1,0,1,2
@@ -226,7 +223,11 @@ function lagrange_3(y::Float64,i::Int,k::Int,mesh::AbstractMesh)
     end
 end
 
-
+"""
+$(SIGNATURES)
+Interpolation operator on the space of degree 3 polynomials
+Uses cubic interpolation 
+"""
 function interpolate_cubic_on_mesh(x::Float64,mesh::AbstractMesh,u::AbstractVector)
     nx, dx = mesh.nx, mesh.dx
     ix  = mod1(Int(floor(x/dx) +1), nx+1)
@@ -237,7 +238,11 @@ function interpolate_cubic_on_mesh(x::Float64,mesh::AbstractMesh,u::AbstractVect
     return pi_u
 end
 
-
+"""
+$(SIGNATURES)
+Compute the feet of the characteristics for the Burgers-Poisson equation when given one single fluid
+    Uses a fixed-point method
+"""
 function compute_char_foot(x::Float64,dt::Float64,mesh::AbstractMesh,u::AbstractVector,E::Float64)
     b = -0.5 * dt * dt * E
     d = 0.0
@@ -254,6 +259,10 @@ function compute_char_foot(x::Float64,dt::Float64,mesh::AbstractMesh,u::Abstract
     return x_feet
 end
 
+"""
+$(SIGNATURES)
+Collect of all the feets for every phase
+"""
 function compute_x_feet_mesh!(dt::Float64,mesh::AbstractMesh,x_feet_mesh::AbstractVector,u::AbstractVector,E::AbstractVector)
     nx = mesh.nx
     for i in 1:(nx+1)
@@ -262,11 +271,21 @@ function compute_x_feet_mesh!(dt::Float64,mesh::AbstractMesh,x_feet_mesh::Abstra
     return
 end
 
+"""
+$(SIGNATURES)
+Gradient operator computed by Fourier transform
+"""
+
 function compute_dx!(v::AbstractVector,mesh::AbstractMesh)
     nx, dx ,kx = mesh.nx, mesh.dx, mesh.kx
     dx_v=real(ifft(complex(0,1)*kx.*fft(v)));
     return dx_v
 end
+
+"""
+$(SIGNATURES)
+Predictor step  of the density with the semi-lagragian method
+"""
 
 function update_rho_predictor_SL!(
         mesh::AbstractMesh, pred_rho::AbstractVector, rho_at_step_n::AbstractVector, u_at_step_n::AbstractVector,
@@ -279,7 +298,10 @@ function update_rho_predictor_SL!(
     end
     return
 end
-
+"""
+$(SIGNATURES)
+Update the velocity of the density with the semi-lagragian method
+"""
 function update_u_SL!(mesh::AbstractMesh,E_at_step_n::AbstractVector, E_at_step_n_plus::AbstractVector,u::AbstractVector, u_at_step_n::AbstractVector,
 	dt::Float64,x_feet_mesh::AbstractVector)
     nx = mesh.nx
@@ -288,7 +310,10 @@ function update_u_SL!(mesh::AbstractMesh,E_at_step_n::AbstractVector, E_at_step_
     end
     return 
 end
-
+"""
+$(SIGNATURES)
+Corrector of the density with the semi-lagragian method
+"""
 function update_rho_corrector_SL!(
         mesh::AbstractMesh, rho::AbstractVector, rho_at_step_n::AbstractVector, u_at_step_n::AbstractVector,u_at_step_n_plus::AbstractVector,
 	dt::Float64, x_feet_mesh::AbstractVector)

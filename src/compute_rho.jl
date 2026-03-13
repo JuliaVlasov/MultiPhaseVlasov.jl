@@ -1,7 +1,10 @@
 export compute_initial_condition
 export compute_rho_total!
-export compute_norm_dx_u
 
+"""
+$(SIGNATURES) 
+compute the initial condition rho_0(x,alpha), u_0(x,alpha)
+"""
 function compute_initial_condition(mesh_x::AbstractMesh,grid_v::AbstractGrid,k::Float64,T::Float64,test_case::String)
 
     nx, nv = mesh_x.nx, grid_v.nv
@@ -22,7 +25,10 @@ end
 
 
 
-
+"""
+$(SIGNATURES) 
+Compute the macroscopic density for the Poisson equation
+"""
 function compute_rho_total!(rho_tot::Vector{Float64}, grid_v::AbstractGrid, rho)
     fill!(rho_tot, 0.0)
     for j in axes(rho, 2)
@@ -33,16 +39,4 @@ function compute_rho_total!(rho_tot::Vector{Float64}, grid_v::AbstractGrid, rho)
     return rho_tot
 end
 
-function compute_norm_dx_u(mesh_x::AbstractMesh, grid_v::AbstractGrid,u::Matrix{Float64})
-    nv = grid_v.nv
-    nx = mesh_x.nx
-    dx = mesh_x.dx
-    dx_u = 0.0
-    for l in 1:nv
-        for i in 1:(nx)
-            du = abs((u[i+1,l]-u[i,l])/dx)
-            dx_u = max(dx_u, du)
-        end
-    end
-    return dx_u
-end
+

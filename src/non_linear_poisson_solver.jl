@@ -105,10 +105,10 @@ end
 
 """
 $(SIGNATURES)
-
 Solve the elliptic problem: ϵ^2 Δϕ = ρ-1  on the Torus.
 
-Uses Fourier method.
+Uses the  discrete Fourier transform.
+
 """
 function poisson!(phi::Vector{Float64}, mesh::UniformMesh, rho_tot::Vector{Float64}, eps::Float64)
 
@@ -116,7 +116,7 @@ rho_tot_f=fft(rho_tot.-1)
 rho_tot_f[1]=0
 kkx=mesh.kx
 kkx[1]=1
-#ff_PB= (eps*eps)*kkx .* kkx.+ 1.0
+#ff_PB= (eps*eps)*kkx .* kkx.+ 1.0  ## This case is for  The Poisson-Boltzmann equation
 ff_P = (eps*eps)*kkx.* kkx
 phi.=+real(ifft((rho_tot_f./(ff_P))))
 

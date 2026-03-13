@@ -1,36 +1,14 @@
 using Sobol
 using FastGaussQuadrature
-
 abstract type AbstractGrid end
-
-export  GaussHermiteGrid
-##Generate the grid in velocity to approach the measure dmu_0 by an empirical measure in three different ways :
-# 1) Gauss-Hermite : Points in velocity are using Gauss-Hermite quadrature
-struct GaussHermiteGrid <: AbstractGrid
-    nv::Int
-    v::Vector{Float64}
-    dv::Float64
-    w::Vector{Float64}
-    T::Float64
-    u0::Float64
-
-    function GaussHermiteGrid(nv,T,mesh_x,test_case)
-        v , w = gausshermite(nv) 
-        dv = 1.0
-        for i in 1:nv
-            v[i] = sqrt(2*T) * v[i]
-            w[i] = w[i] * mean_f0(v[i],T,mesh_x,test_case) * exp(v[i]*v[i]/(2*T)) * sqrt(2*T)
-            if(i<= nv-1)
-                dv = min(dv,abs(v[i+1]-v[i]))
-            end
-        end
-        new(nv,v,dv,w,T,u0)
-    end
-
-end
-
 export UniformGrid
-#2) Uniform grid in velocity with n points starting v_l = vmin + (l-1) (vmax-vmin)/(n-1)
+
+"""
+$(SIGNATURES) 
+Construct the atomic measure approximation dmu_0^{n_v} 
+Uses uniform mesh of the interval [vmin,vmax] with nv point with a rectangle formula for the weights.
+"""
+
 struct UniformGrid <: AbstractGrid
     nv::Int
     v::Vector{Float64}
@@ -56,19 +34,36 @@ struct UniformGrid <: AbstractGrid
 
 end
 
-#Function to construct the Monte Carlo grid based on the inverse of the cumulative distribution function
-function newton(r)
-        kx, alpha = 0.5, 0.001
-        x0, x1 = 0.0, 1.0
-        r *= 2π / kx
-        while (abs(x1 - x0) > 1e-12)
-            p = x0 + alpha * sin(kx * x0) / kx
-            f = 1 + alpha * cos(kx * x0)
-            x0, x1 = x1, x0 - (p - r) / f
-        end
-        return x1
- end
+export  GaussHermiteGrid
 
+"""
+$(SIGNATURES) 
+Construct the atomic measure approximation dmu_0^{n_v} 
+Uses the Gauss Hermite quadrature points 
+
+"""
+struct GaussHermiteGrid <: AbstractGrid
+    nv::Int
+    v::Vector{Float64}
+    dv::Float64
+    w::Vector{Float64}
+    T::Float64
+    u0::Float64
+
+    function GaussHermiteGrid(nv,T,mesh_x,test_case)
+        v , w = gausshermite(nv) 
+        dv = 1.0
+        for i in 1:nv
+            v[i] = sqrt(2*T) * v[i]
+            w[i] = w[i] * mean_f0(v[i],T,mesh_x,test_case) * exp(v[i]*v[i]/(2*T)) * sqrt(2*T)
+            if(i<= nv-1)
+                dv = min(dv,abs(v[i+1]-v[i]))
+            end
+        end
+        new(nv,v,dv,w,T,u0)
+    end
+
+end
 
 #Function to sample a Maxwellian with mean and temperature given
  function sample_maxwellian(T::Float64, mean::Float64, nb_sample::Int64)
@@ -84,23 +79,13 @@ function newton(r)
     return v
  end
 
-function landau( nbpart :: Int64)
+ """
+$(SIGNATURES) 
+Construct the atomic measure approximation dmu_0^{n_v} 
 
-   xp = Float64[]
-   vp = Float64[]
+Uses the Monte Carlo approach : sample a Maxwellian with given temperature and mean 
 
-   s = SobolSeq(2)
-
-   for k=0:nbpart-1
-
-      a = sqrt(-2 * log( (k+0.5)/nbpart))
-      r1, r2 = next!(s)
-      θ = r1 * 2π
-      push!(xp,  newton(r2))
-      push!(vp,  a * sin(θ))
-   end
-    return vp
-end
+"""
 
 export MonteCarloGrid
 struct MonteCarloGrid <:AbstractGrid
