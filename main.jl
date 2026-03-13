@@ -54,7 +54,7 @@ function main(hermite_quad)
         err=1e-10
 	    maxiter=50
         sum_norm_dx_u += dt*compute_norm_dx_u(mesh_x,grid_v,u)
-        threshold = 0.3 
+        threshold = 0.3 #Numerical remapping threshold : you may change it or not depending on the test case
         if(sum_norm_dx_u > threshold )
             println("Remapping f at time = $(n*dt)")
             remap_time = n * dt
@@ -118,7 +118,9 @@ function main(hermite_quad)
         println("iteration = $n, time = $(n * dt) , tr = $remap_time:")
         println("||E|| = $(last(elec_energy)), Mass = $(last(mass)), int_[tr,time] ||dxU(t)||dt = $sum_norm_dx_u")
         #Make the animation : evolution of the surface plot of the distribution function
-        per = 20 #Plot every 100 iterations
+        #Plot every "per" 
+        #Comment this part if you do not want the animation :  it is the time consuming part of the code.
+        per = 20 
         if(mod(n,per) == 1)
             f_on_grid =  interpolate_f_on_grid(mesh_x,grid_v,rho,u)
             X = []
