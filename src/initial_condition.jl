@@ -1,75 +1,60 @@
+export mean_f0
+export f0
+export u_ini
 """
+# Here is defined the initial condition:
+1) Maxwellian case is when (u_0 = 0)
+2) Two stream case is when (u_0 != 0)
 $(SIGNATURES)
-
-Mean of the initial condition in x.
+Mean of the initial condition in x // The perturbation in x must be of zero mean
 """
-function mean_f0(v::Float64)::Float64
-    return (1.0 / sqrt(2π)) * exp(-0.5 * v * v)
+#function mean_f0(v::Float64, T::Float64,u0::Float64)::Float64
+#    return (1.0 / sqrt(2π*T))  *  ( 0.5 * exp(-0.5 * (v-u0) * (v-u0)/T) + 0.5* exp(-0.5 * (v+u0) * (v+u0)/T) )
+#end
+
+function u_ini(x::Float64, k::Float64, test_case::String)::Float64
+    u = 0.0
+    a = 0.1
+    if (test_case == "landau_damping")
+        u = 0
+    elseif (test_case == "two_streams")
+        u = 4.5 #2.4
+    elseif (test_case == "mono_kinetic")
+        u = a * cos(k * x)
+    else
+        u = 0.0
+    end
+    return u
+end
+
+#This is used when the initial condition is not variable separated
+function mean_f0(v::Float64, T::Float64, mesh_x::AbstractMesh, test_case::String)::Float64
+    mf0 = 0.0
+    nx, dx, L = mesh_x.nx, mesh_x.dx, mesh_x.L
+    k = 2 * pi / L
+    for i in 1:(nx + 1)
+        x = mesh_x.x[i]
+        u0 = u_ini(x, k, test_case)
+        mf0 += (f0(x, v, k, T, u0, test_case) * dx) / L
+    end
+    return mf0
 end
 
 """
 $(SIGNATURES)
-    
-Initial condition for the Vlasov-equation (Penrose-stable equilibra with a perturbation).
+Initial condition for the Vlasov-equation 
+    1) Maxwellian with perturbation : f_0(x,v) = M_T(v) * (1+a * cos(kx))
+    2) Two stream with perturbation : f_0(x,v) = 0.5 *( M_T(v-u0) + M_T(v+u0)) * (1+ a * cos(kx)), u_0 = 2.4 k = 0.2
+    3) Monokinetic  : f_0(x,v) = M_T(v-u0(x))
 """
-function f0(x::Float64, v::Float64, k)::Float64
-    a = 0.01
-    return (1.0 / sqrt(2π)) * exp(-0.5 * v * v) * (1 + a * cos(k * x))
-end
-
-export compute_initial_condition
-
-"""
-$(SIGNATURES)
-    
-Compute the initial condition for rho, u, and total density.
-"""
-function compute_initial_condition(mesh::GaussHermiteMesh)
-
-    nx, ng = mesh.nx, mesh.ng
-    rho = zeros(nx + 1, ng)
-    u = zeros(nx + 1, ng)
-    rho_tot = zeros(nx + 1)
-
-    for j in 1:ng
-        alpha = mesh.x[j]
-        for i in 1:(nx + 1)
-            x_i = (i - 1) * mesh.dx
-            rho[i, j] = f0(x_i, alpha) / mean_f0(alpha)
-            u[i, j] = alpha
-            rho_tot[i] += mesh.w[j] * rho[i, j] * mean_f0(alpha) * exp(alpha * alpha)
-        end
+function f0(x::Float64, v::Float64, k::Float64, T::Float64, u0::Float64, test_case::String)::Float64
+    a = 0.04
+    f0 = 0.0
+    if (test_case == "mono_kinetic")
+        f0 = (1.0 / sqrt(2π * T)) * exp(-0.5 * (v - u0) * (v - u0) / T)
+    else
+        #        f0 = (1.0 / sqrt(2π*T)) *   ( 0.5 * exp(-0.5 * (v-u0) * (v-u0)/T) + 0.5* exp(-0.5 * (v+u0) * (v+u0)/T) ) * (1 + a * cos(k * x))
+        f0 = (0.1 / sqrt(2π * T)) * (9 * exp(-0.5 * v * v) + 2 * exp(-2 * (v - u0) * (v - u0))) * (1 + a * cos(k * x))
     end
-
-    return rho, u, rho_tot
-
-end
-
-function compute_initial_condition(mesh::UniformMesh, k)
-
-    nx, ng = mesh.nx, mesh.ng
-    vmin, vmax = mesh.vmin, mesh.vmax
-    rho = zeros(nx + 1, ng)
-    u = zeros(nx + 1, ng)
-    rho_tot = zeros(nx + 1)
-
-    sf0 = 0.0
-    for j in 1:ng
-        alpha = vmin + (j - 1) * (vmax - vmin) / (ng - 1)
-        sf0 += mean_f0(alpha)
-    end
-    for j in 1:ng
-        alpha = vmin + (j - 1) * (vmax - vmin) / (ng - 1)
-        for i in 1:(nx + 1)
-            x_i = mesh.x[i]
-            rho[i, j] = f0(x_i, alpha, k) / mean_f0(alpha)
-            u[i, j] = alpha
-            rho_tot[i] += rho[i, j] * mean_f0(alpha) / sf0
-        end
-    end
-
-    mesh.sf0 = sf0
-
-    return rho, u, rho_tot
-
+    return f0
 end

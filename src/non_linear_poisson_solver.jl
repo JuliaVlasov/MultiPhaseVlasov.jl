@@ -58,6 +58,7 @@ struct NonLinearPoissonSolver
 end
 
 export solve!
+export poisson!
 
 """
 $(SIGNATURES)
@@ -92,11 +93,29 @@ function solve!(phi::Vector{Float64}, solver::NonLinearPoissonSolver, rho_tot::V
         solver.jacobian[nx + 1, nx + 1] = -2 * ϵ * ϵ - exp(-phi[nx + 1])
         solver.jacobian[nx + 1, nx] = ϵ * ϵ
 
-        norm(solver.rhs, Inf) < 1.0e-7 && return
+        norm(solver.rhs, Inf) < 1.0e-10 && return
 
         delta .= solver.jacobian \ solver.rhs
         phi .-= delta
 
     end
     return
+end
+
+
+"""
+$(SIGNATURES)
+
+Solve the elliptic problem: ϵ^2 Δϕ = ρ-1  on the Torus.
+
+Uses Fourier method.
+"""
+function poisson!(phi::Vector{Float64}, mesh::UniformMesh, rho_tot::Vector{Float64}, eps::Float64)
+
+    rho_tot_f = fft(rho_tot .- 1)
+    rho_tot_f[1] = 0
+    kkx = mesh.kx
+    kkx[1] = 1
+    return phi .= +real(ifft((rho_tot_f ./ (kkx .* kkx)))) / (eps * eps)
+
 end
