@@ -1,4 +1,8 @@
+export TwoStreams
+
 """
+$(TYPEDEF)
+
 ## The Two-Stream Distribution Function
 
 The standard choice is a **double-shifted Maxwellian**:
@@ -25,17 +29,16 @@ where:
 
 end
 
-u_initial(test_case::TwoStreams, x, k) = 4.5
+function f0(test_case::TwoStreams, x::Float64, v::Float64)::Float64
 
-function f0(test_case::TwoStreams, x::Float64, v::Float64, k::Float64, T::Float64, u0::Float64)::Float64
-
-    a = test_case.α
-    k = test_case.a
     n0 = test_case.n0
+    α = test_case.α # Perturbation amplitude
+    k = test_case.k # Perturbation wave number
     vth = test_case.vth # thermal velocity
     v0 = test_case.v0 # drift velocity
     
-    f0 = (1.0 / sqrt(2π*T)) *   ( 0.5 * exp(-0.5 * (v-u0) * (v-u0)/T) + 0.5* exp(-0.5 * (v+u0) * (v+u0)/T) ) * (1 + a * cos(k * x))
+    f0 = (n0 / sqrt(2π*vth)) *  ( 0.5 * exp(-0.5 * (v-v0) * (v-v0)/vth) 
+                                + 0.5 * exp(-0.5 * (v+v0) * (v+v0)/vth) ) * (1.0 + α * cos(k * x))
 
     return f0
 

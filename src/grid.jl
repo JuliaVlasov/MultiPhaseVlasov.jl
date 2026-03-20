@@ -30,7 +30,15 @@ struct GaussHermiteGrid <: AbstractGrid
 end
 
 export UniformGrid
-#2) Uniform grid in velocity with n points starting v_l = vmin + (l-1) (vmax-vmin)/(n-1)
+
+"""
+$(TYPEDEF)
+
+Uniform grid in velocity with n points starting 
+
+``v_l = vmin + (l-1) (vmax-vmin)/(n-1)``
+
+"""
 struct UniformGrid <: AbstractGrid
     nv::Int
     v::Vector{Float64}
@@ -46,10 +54,10 @@ struct UniformGrid <: AbstractGrid
         v = LinRange(vmin, vmax, nv)
         w = zeros(nv)
         for i in 1:nv
-            sf0 += mean_f0(v[i], T, mesh_x, test_case) * dv
+            sf0 += mean_f0(test_case, mesh_x, v[i]) * dv
         end
         for i in 1:nv
-            w[i] = mean_f0(v[i], T, mesh_x, test_case) * dv / sf0
+            w[i] = mean_f0(test_case, mesh_x, v[i]) * dv / sf0
         end
         return new(nv, v, dv, w, T)
     end
